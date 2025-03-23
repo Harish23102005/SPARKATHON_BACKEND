@@ -37,8 +37,8 @@ let authRoutes, studentRoutes, sequelize, User;
 try {
   authRoutes = require("./routes/authRoutes");
   studentRoutes = require("./routes/studentRoutes");
-  sequelize = require("./backend/config/database");
-  ({ User } = require("./backend/models"));
+  sequelize = require("./Backend/config/database");
+  ({ User } = require("./Backend/models"));
 } catch (error) {
   console.error("Failed to load required modules:", error.message);
   process.exit(1);
