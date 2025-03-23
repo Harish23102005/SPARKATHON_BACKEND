@@ -1,3 +1,4 @@
+const { Sequelize, Op } = require("sequelize"); // Import Sequelize and Op
 const {
   Student,
   Mark,
@@ -18,9 +19,9 @@ const getAllStudents = async (req, res) => {
   try {
     const students = await Student.findAll({
       include: [
-        { model: Mark, include: [MarksCoMapping] },
-        { model: CourseOutcome },
-        { model: CoPoMapping },
+        { model: Mark, include: [MarksCoMapping], required: false },
+        { model: CourseOutcome, required: false },
+        { model: CoPoMapping, required: false },
       ],
       where: {
         student_id: {
@@ -38,8 +39,10 @@ const getAllStudents = async (req, res) => {
     );
     res.json(validStudents);
   } catch (error) {
-    console.error("Error fetching students:", error);
-    res.status(500).json({ error: "Failed to fetch students" });
+    console.error("Error fetching students:", error.message, error.stack);
+    res
+      .status(500)
+      .json({ error: "Failed to fetch students: " + error.message });
   }
 };
 
@@ -57,6 +60,20 @@ const addStudent = async (req, res) => {
     ) {
       await transaction.rollback();
       return res.status(400).json({ error: "Invalid student ID" });
+    }
+
+    // Validate name and department
+    if (!name || typeof name !== "string" || name.trim() === "") {
+      await transaction.rollback();
+      return res.status(400).json({ error: "Invalid student name" });
+    }
+    if (
+      !department ||
+      typeof department !== "string" ||
+      department.trim() === ""
+    ) {
+      await transaction.rollback();
+      return res.status(400).json({ error: "Invalid department" });
     }
 
     const studentData = {
@@ -80,34 +97,60 @@ const addStudent = async (req, res) => {
 
     const newStudent = await Student.create(studentData, { transaction });
 
-    if (marks && marks.length > 0) {
+    if (marks && Array.isArray(marks) && marks.length > 0) {
       await Promise.all(
         marks.map(async (mark) => {
+          // Validate mark data
+          if (
+            !mark.year ||
+            !mark.internal ||
+            !mark.exam ||
+            !mark.totalInternal ||
+            !mark.totalExam
+          ) {
+            throw new Error("Invalid mark data: missing required fields");
+          }
           const newMark = await Mark.create(
             {
               student_id: studentId,
               year: mark.year,
-              internal: mark.internal,
-              exam: mark.exam,
-              totalInternal: mark.totalInternal,
-              totalExam: mark.totalExam,
+              internal: parseFloat(mark.internal) || 0,
+              exam: parseFloat(mark.exam) || 0,
+              totalInternal: parseFloat(mark.totalInternal) || 0,
+              totalExam: parseFloat(mark.totalExam) || 0,
               createdAt: new Date(),
               updatedAt: new Date(),
             },
             { transaction }
           );
 
-          if (mark.coMapping && mark.coMapping.length > 0) {
+          if (
+            mark.coMapping &&
+            Array.isArray(mark.coMapping) &&
+            mark.coMapping.length > 0
+          ) {
             await Promise.all(
               mark.coMapping.map(async (coMap) => {
+                // Validate coMapping data
+                if (
+                  !coMap.coId ||
+                  !coMap.internal ||
+                  !coMap.exam ||
+                  !coMap.totalInternal ||
+                  !coMap.totalExam
+                ) {
+                  throw new Error(
+                    "Invalid CO mapping data: missing required fields"
+                  );
+                }
                 await MarksCoMapping.create(
                   {
                     mark_id: newMark.id,
                     coId: coMap.coId,
-                    internal: coMap.internal,
-                    exam: coMap.exam,
-                    totalInternal: coMap.totalInternal,
-                    totalExam: coMap.totalExam,
+                    internal: parseFloat(coMap.internal) || 0,
+                    exam: parseFloat(coMap.exam) || 0,
+                    totalInternal: parseFloat(coMap.totalInternal) || 0,
+                    totalExam: parseFloat(coMap.totalExam) || 0,
                     createdAt: new Date(),
                     updatedAt: new Date(),
                   },
@@ -120,14 +163,24 @@ const addStudent = async (req, res) => {
       );
     }
 
-    if (courseOutcomes && courseOutcomes.length > 0) {
+    if (
+      courseOutcomes &&
+      Array.isArray(courseOutcomes) &&
+      courseOutcomes.length > 0
+    ) {
       await Promise.all(
         courseOutcomes.map(async (co) => {
+          // Validate course outcome data
+          if (!co.coId || !co.target) {
+            throw new Error(
+              "Invalid course outcome data: missing required fields"
+            );
+          }
           await CourseOutcome.create(
             {
               student_id: studentId,
               coId: co.coId,
-              target: co.target,
+              target: parseFloat(co.target) || 70,
               createdAt: new Date(),
               updatedAt: new Date(),
             },
@@ -137,9 +190,15 @@ const addStudent = async (req, res) => {
       );
     }
 
-    if (coPoMapping && coPoMapping.length > 0) {
+    if (coPoMapping && Array.isArray(coPoMapping) && coPoMapping.length > 0) {
       await Promise.all(
         coPoMapping.map(async (mapping) => {
+          // Validate CO-PO mapping data
+          if (!mapping.coId || !mapping.poMapping) {
+            throw new Error(
+              "Invalid CO-PO mapping data: missing required fields"
+            );
+          }
           await CoPoMapping.create(
             {
               student_id: studentId,
@@ -170,7 +229,7 @@ const addStudent = async (req, res) => {
       .json({ message: "Student added successfully", student: createdStudent });
   } catch (error) {
     await transaction.rollback();
-    console.error("Error creating student:", error);
+    console.error("Error creating student:", error.message, error.stack);
     res
       .status(500)
       .json({ error: "Failed to create student: " + error.message });
@@ -181,7 +240,7 @@ const updateMarks = async (req, res) => {
   const transaction = await Student.sequelize.transaction();
   try {
     const { studentId } = req.params;
-    const { marks } = req.body;
+    const { marks, courseOutcomes } = req.body;
 
     // Validate studentId
     if (
@@ -202,36 +261,67 @@ const updateMarks = async (req, res) => {
       return res.status(404).json({ error: "Student not found" });
     }
 
+    // Delete existing marks and CO mappings
     await Mark.destroy({ where: { student_id: studentId }, transaction });
+    await CourseOutcome.destroy({
+      where: { student_id: studentId },
+      transaction,
+    });
 
-    if (marks && marks.length > 0) {
+    if (marks && Array.isArray(marks) && marks.length > 0) {
       await Promise.all(
         marks.map(async (mark) => {
+          // Validate mark data
+          if (
+            !mark.year ||
+            !mark.internal ||
+            !mark.exam ||
+            !mark.totalInternal ||
+            !mark.totalExam
+          ) {
+            throw new Error("Invalid mark data: missing required fields");
+          }
           const newMark = await Mark.create(
             {
               student_id: studentId,
               year: mark.year,
-              internal: mark.internal,
-              exam: mark.exam,
-              totalInternal: mark.totalInternal,
-              totalExam: mark.totalExam,
+              internal: parseFloat(mark.internal) || 0,
+              exam: parseFloat(mark.exam) || 0,
+              totalInternal: parseFloat(mark.totalInternal) || 0,
+              totalExam: parseFloat(mark.totalExam) || 0,
               createdAt: new Date(),
               updatedAt: new Date(),
             },
             { transaction }
           );
 
-          if (mark.coMapping && mark.coMapping.length > 0) {
+          if (
+            mark.coMapping &&
+            Array.isArray(mark.coMapping) &&
+            mark.coMapping.length > 0
+          ) {
             await Promise.all(
               mark.coMapping.map(async (coMap) => {
+                // Validate coMapping data
+                if (
+                  !coMap.coId ||
+                  !coMap.internal ||
+                  !coMap.exam ||
+                  !coMap.totalInternal ||
+                  !coMap.totalExam
+                ) {
+                  throw new Error(
+                    "Invalid CO mapping data: missing required fields"
+                  );
+                }
                 await MarksCoMapping.create(
                   {
                     mark_id: newMark.id,
                     coId: coMap.coId,
-                    internal: coMap.internal,
-                    exam: coMap.exam,
-                    totalInternal: coMap.totalInternal,
-                    totalExam: coMap.totalExam,
+                    internal: parseFloat(coMap.internal) || 0,
+                    exam: parseFloat(coMap.exam) || 0,
+                    totalInternal: parseFloat(coMap.totalInternal) || 0,
+                    totalExam: parseFloat(coMap.totalExam) || 0,
                     createdAt: new Date(),
                     updatedAt: new Date(),
                   },
@@ -240,6 +330,33 @@ const updateMarks = async (req, res) => {
               })
             );
           }
+        })
+      );
+    }
+
+    if (
+      courseOutcomes &&
+      Array.isArray(courseOutcomes) &&
+      courseOutcomes.length > 0
+    ) {
+      await Promise.all(
+        courseOutcomes.map(async (co) => {
+          // Validate course outcome data
+          if (!co.coId || !co.target) {
+            throw new Error(
+              "Invalid course outcome data: missing required fields"
+            );
+          }
+          await CourseOutcome.create(
+            {
+              student_id: studentId,
+              coId: co.coId,
+              target: parseFloat(co.target) || 70,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+            { transaction }
+          );
         })
       );
     }
@@ -261,8 +378,8 @@ const updateMarks = async (req, res) => {
     });
   } catch (error) {
     await transaction.rollback();
-    console.error("Error updating marks:", error);
-    res.status(500).json({ error: "Failed to update marks" });
+    console.error("Error updating marks:", error.message, error.stack);
+    res.status(500).json({ error: "Failed to update marks: " + error.message });
   }
 };
 
@@ -286,8 +403,10 @@ const deleteStudent = async (req, res) => {
     await student.destroy();
     res.json({ message: "Student deleted successfully" });
   } catch (error) {
-    console.error("Error deleting student:", error);
-    res.status(500).json({ error: "Failed to delete student" });
+    console.error("Error deleting student:", error.message, error.stack);
+    res
+      .status(500)
+      .json({ error: "Failed to delete student: " + error.message });
   }
 };
 
@@ -318,8 +437,8 @@ const calculateCoPoAttainment = async (req, res) => {
     }
 
     const coSummary = [];
-    for (const mark of student.Marks) {
-      for (const coMap of mark.MarksCoMappings) {
+    for (const mark of student.Marks || []) {
+      for (const coMap of mark.MarksCoMappings || []) {
         const internalAttainment =
           coMap.totalInternal !== 0
             ? (coMap.internal / coMap.totalInternal) * 100
@@ -335,22 +454,26 @@ const calculateCoPoAttainment = async (req, res) => {
     }
 
     const poSummary = [];
-    for (const mapping of student.CoPoMappings) {
+    for (const mapping of student.CoPoMappings || []) {
       const coAttainment =
         coSummary.find((co) => co.coId === mapping.coId)?.avgAttainment || 0;
-      for (const po of mapping.poMapping) {
-        const poAttainment = coAttainment * (po.weight / 3);
-        poSummary.push({
-          poId: po.poId,
-          avgAttainment: poAttainment,
-        });
+      if (Array.isArray(mapping.poMapping)) {
+        for (const po of mapping.poMapping) {
+          const poAttainment = coAttainment * (po.weight / 3);
+          poSummary.push({
+            poId: po.poId,
+            avgAttainment: poAttainment,
+          });
+        }
       }
     }
 
     res.json({ coSummary, poSummary });
   } catch (error) {
-    console.error("Error calculating CO/PO:", error);
-    res.status(500).json({ error: "Failed to calculate CO/PO" });
+    console.error("Error calculating CO/PO:", error.message, error.stack);
+    res
+      .status(500)
+      .json({ error: "Failed to calculate CO/PO: " + error.message });
   }
 };
 
@@ -999,13 +1122,21 @@ const uploadSemesterResults = async (req, res) => {
       res.json({ coAttainment, targetAttained, parameters });
     } catch (error) {
       await transaction.rollback();
-      console.error("Error processing semester results:", error);
+      console.error(
+        "Error processing semester results:",
+        error.message,
+        error.stack
+      );
       res.status(500).json({
         error: "Failed to process semester results: " + error.message,
       });
     }
   } catch (error) {
-    console.error("Error uploading semester results:", error);
+    console.error(
+      "Error uploading semester results:",
+      error.message,
+      error.stack
+    );
     res
       .status(500)
       .json({ error: "Failed to upload semester results: " + error.message });
