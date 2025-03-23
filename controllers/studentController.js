@@ -37,6 +37,7 @@ const getAllStudents = async (req, res) => {
         typeof student.student_id === "string" &&
         student.student_id.trim() !== ""
     );
+    console.log("Returning students:", validStudents); // Add this log
     res.json(validStudents);
   } catch (error) {
     console.error("Error fetching students:", error.message, error.stack);
