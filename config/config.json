@@ -1,0 +1,9 @@
+{
+  "development": {
+    "username": "student_user",
+    "password": "@Harish_23",
+    "database": "student_tracker",
+    "host": "127.0.0.1",
+    "dialect": "mysql"
+  }
+}
