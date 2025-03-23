@@ -38,7 +38,7 @@ try {
   authRoutes = require("./routes/authRoutes");
   studentRoutes = require("./routes/studentRoutes");
   sequelize = require("./config/database");
-  ({ User } = require(".models"));
+  ({ User } = require("./models"));
 } catch (error) {
   console.error("Failed to load required modules:", error.message);
   process.exit(1);
