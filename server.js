@@ -9,16 +9,12 @@ const xlsx = require("xlsx");
 const app = express();
 
 // Middleware
-// Update CORS to allow only your Netlify frontend in production
 const allowedOrigins = [process.env.FRONTEND_URL || "http://localhost:3000"];
-
-// Log the allowed origins for debugging
 console.log("Allowed Origins:", allowedOrigins);
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Log the incoming origin for debugging
       console.log("Incoming Origin:", origin);
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
@@ -29,21 +25,20 @@ app.use(
         callback(new Error(`CORS policy: Origin ${origin} not allowed`));
       }
     },
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Allow these HTTP methods
-    allowedHeaders: ["Content-Type", "Authorization"], // Allow these headers
-    credentials: true, // Allow credentials (if needed, e.g., for cookies or auth headers)
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   })
 );
 
-// Handle preflight requests explicitly (optional, but recommended for clarity)
-app.options("*", cors()); // Respond to all OPTIONS requests
+app.options("*", cors());
 app.use(express.json());
 
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// Import routes (fix duplicate import)
+// Import routes
 const authRoutes = require("./routes/authRoutes");
 const studentRoutes = require("./routes/studentRoutes");
 
@@ -53,13 +48,13 @@ app.use("/api/students", studentRoutes);
 
 // Import database and models
 const sequelize = require("./config/database");
-const { User } = require("./models");
+const { User, Student } = require("./models");
 
 // Function to map percentage to CO level (1 to 3)
 const mapPercentageToLevel = (percentage) => {
-  if (percentage >= 70) return 3; // Level 3 for >= 70%
-  if (percentage >= 60) return 2; // Level 2 for >= 60%
-  return 1; // Level 1 for < 60%
+  if (percentage >= 70) return 3;
+  if (percentage >= 60) return 2;
+  return 1;
 };
 
 // Endpoint for calculating semester CO/PO and storing the result
@@ -75,7 +70,6 @@ app.post(
     try {
       console.log("Received upload request");
 
-      // Check if files are present
       if (
         !req.files ||
         !req.files.internal ||
@@ -90,7 +84,6 @@ app.post(
         });
       }
 
-      // Parse the uploaded Excel files
       console.log("Parsing Internal file...");
       const internalWb = xlsx.read(req.files.internal[0].buffer, {
         type: "buffer",
@@ -108,13 +101,11 @@ app.post(
         type: "buffer",
       });
 
-      // Log the sheet names to verify structure
       console.log("Internal Workbook Sheet Names:", internalWb.SheetNames);
       console.log("Assignment Workbook Sheet Names:", assignmentWb.SheetNames);
       console.log("Class Test Workbook Sheet Names:", classTestWb.SheetNames);
       console.log("Semester Workbook Sheet Names:", semesterWb.SheetNames);
 
-      // Validate sheet structure
       const requiredColumns = {
         internal: ["CO1", "CO2", "CO3", "CO4", "CO5", "CO6"],
         assignment: ["CO1", "CO2", "CO3", "CO4", "CO5", "CO6"],
@@ -122,7 +113,6 @@ app.post(
         semester: ["Mark"],
       };
 
-      // Process only the first 3 sheets for internal, 3 for assignment, 2 for class test, 1 for semester
       const internalSheets = internalWb.SheetNames.slice(0, 3).map(
         (sheetName) => xlsx.utils.sheet_to_json(internalWb.Sheets[sheetName])
       );
@@ -136,7 +126,6 @@ app.post(
         (sheetName) => xlsx.utils.sheet_to_json(semesterWb.Sheets[sheetName])
       );
 
-      // Validate data
       if (
         internalSheets.length === 0 ||
         internalSheets.every((sheet) => sheet.length === 0)
@@ -164,7 +153,6 @@ app.post(
       console.log("Class Test Sheets Count:", classTestSheets.length);
       console.log("Semester Sheets Count:", semesterSheets.length);
 
-      // Initialize CO attainment object
       const coAttainment = {
         internal1: { CO1: 0, CO2: 0, CO3: 0, CO4: 0, CO5: 0, CO6: 0 },
         internal2: { CO1: 0, CO2: 0, CO3: 0, CO4: 0, CO5: 0, CO6: 0 },
@@ -202,19 +190,15 @@ app.post(
         CO6: false,
       };
 
-      // Define static parameters as per the image
       const parameters = {
-        x: 0.8, // Weight for external attainment
-        y: 0.2, // Weight for internal attainment
-        u: 0.9, // Weight for direct attainment
-        v: 0.1, // Weight for indirect attainment
-        targetAttainmentLevel: 2.6, // Target level as per the image
+        x: 0.8,
+        y: 0.2,
+        u: 0.9,
+        v: 0.1,
+        targetAttainmentLevel: 2.6,
       };
 
-      // Process Internal Assessments (Internal 1, 2, 3)
       console.log("Processing Internal Assessments...");
-
-      // Maximum marks based on the analysis
       const internalMaxMarks = {
         internal1: { CO1: 88, CO2: 62, CO3: 0, CO4: 0, CO5: 0, CO6: 30 },
         internal2: { CO1: 0, CO2: 0, CO3: 103, CO4: 77, CO5: 0, CO6: 0 },
@@ -222,10 +206,8 @@ app.post(
       };
       console.log("Internal Max Marks:", internalMaxMarks);
 
-      // Process each internal sheet (up to 3)
       for (let i = 1; i <= 3; i++) {
         if (i > internalSheets.length || internalSheets[i - 1].length === 0) {
-          // If the sheet is missing, set to "-"
           for (let k = 1; k <= 6; k++) {
             const coId = `CO${k}`;
             coAttainment[`internal${i}`][coId] = "-";
@@ -265,7 +247,6 @@ app.post(
             let coTotal = 0;
             for (let col in internalData[j]) {
               if (col.startsWith(coId)) {
-                // Skip specific columns as per original code
                 if (i === 2 && coId === "CO3" && col === "CO3.11") continue;
                 if (i === 2 && coId === "CO4" && col === "CO4.9") continue;
                 if (i === 3 && coId === "CO2" && col === "CO2.4") continue;
@@ -308,7 +289,6 @@ app.post(
         }
       }
 
-      // Calculate Internal Average, excluding COs with max marks of 0 or "-"
       console.log("Calculating Internal Average...");
       const internalAverage = {
         CO1: 0,
@@ -343,14 +323,12 @@ app.post(
         );
       }
 
-      // Process Assignments (Assignment 1, 2, 3) - Calculate individual levels
       console.log("Processing Assignments...");
       for (let i = 1; i <= 3; i++) {
         if (
           i > assignmentSheets.length ||
           assignmentSheets[i - 1].length === 0
         ) {
-          // If the sheet is missing, set to "-"
           for (let k = 1; k <= 6; k++) {
             const coId = `CO${k}`;
             coAttainment[`assignment${i}`][coId] = "-";
@@ -360,7 +338,7 @@ app.post(
         }
 
         const assignmentData = assignmentSheets[i - 1];
-        let assignmentMaxMarks = 10; // Default max marks
+        let assignmentMaxMarks = 10;
         const assignmentTotals = {
           CO1: 0,
           CO2: 0,
@@ -413,7 +391,6 @@ app.post(
         }
       }
 
-      // Calculate Assignment Average
       console.log("Calculating Assignment Average...");
       for (let k = 1; k <= 6; k++) {
         const coId = `CO${k}`;
@@ -436,11 +413,9 @@ app.post(
         );
       }
 
-      // Process Class Tests (Class Test 1, 2) - Calculate individual levels
       console.log("Processing Class Tests...");
       for (let i = 1; i <= 2; i++) {
         if (i > classTestSheets.length || classTestSheets[i - 1].length === 0) {
-          // If the sheet is missing, set to "-"
           for (let k = 1; k <= 6; k++) {
             const coId = `CO${k}`;
             coAttainment[`classTest${i}`][coId] = "-";
@@ -450,7 +425,7 @@ app.post(
         }
 
         const classTestData = classTestSheets[i - 1];
-        let classTestMaxMarks = 10; // Default max marks
+        let classTestMaxMarks = 10;
         const classTestTotals = {
           CO1: 0,
           CO2: 0,
@@ -503,7 +478,6 @@ app.post(
         }
       }
 
-      // Calculate Class Test Average
       console.log("Calculating Class Test Average...");
       for (let k = 1; k <= 6; k++) {
         const coId = `CO${k}`;
@@ -526,14 +500,12 @@ app.post(
         );
       }
 
-      // Calculate CIA (20%)
       console.log("Calculating CIA...");
       for (let k = 1; k <= 6; k++) {
         const coId = `CO${k}`;
         const internalAvg = coAttainment.internalAvg[coId];
         const assignmentAvg = coAttainment.assignmentAvg[coId];
         const classTestAvg = coAttainment.classTestAvg[coId];
-        // Weights: Internal 50%, Assignment 30%, Class Test 20%
         const ciaValue =
           (internalAvg > 0 ? internalAvg : 0) * 0.5 +
           (assignmentAvg > 0 ? assignmentAvg : 0) * 0.3 +
@@ -546,7 +518,6 @@ app.post(
         );
       }
 
-      // Process Semester Results (SEE - 80%)
       console.log("Processing Semester Results...");
       const semesterScores = { CO1: 0, CO2: 0, CO3: 0, CO4: 0, CO5: 0, CO6: 0 };
       const coMapping = {
@@ -585,7 +556,7 @@ app.post(
       const semesterData = semesterSheets[0];
       for (let i = 0; i < semesterData.length; i++) {
         const total = Number(semesterData[i]["Mark"]) || 0;
-        const percentage = (total / 100) * 100; // Assuming max marks for SEE is 100
+        const percentage = (total / 100) * 100;
         const level = mapPercentageToLevel(percentage);
         for (let k = 1; k <= 6; k++) {
           const coId = `CO${k}`;
@@ -607,7 +578,6 @@ app.post(
         }
       }
 
-      // Calculate Direct Attainment (x * External + y * Internal)
       console.log("Calculating Direct Attainment...");
       for (let k = 1; k <= 6; k++) {
         const coId = `CO${k}`;
@@ -618,7 +588,6 @@ app.post(
         console.log(`Direct, ${coId}: ${coAttainment.direct[coId].toFixed(2)}`);
       }
 
-      // Calculate Indirect Attainment (average of Seminar and Work Project)
       console.log("Calculating Indirect Attainment...");
       for (let k = 1; k <= 6; k++) {
         const coId = `CO${k}`;
@@ -634,7 +603,6 @@ app.post(
         );
       }
 
-      // Calculate Overall Attainment (u * Direct + v * Indirect)
       console.log("Calculating Overall Attainment...");
       for (let k = 1; k <= 6; k++) {
         const coId = `CO${k}`;
@@ -657,8 +625,6 @@ app.post(
       );
       console.log("Target Attained:", targetAttained);
 
-      // TODO: Store coAttainment in the database instead of in-memory
-      // For now, we'll return the data
       res.json({ coAttainment, targetAttained, parameters });
     } catch (error) {
       console.error("Error uploading semester results:", error);
@@ -669,11 +635,9 @@ app.post(
   }
 );
 
-// Sync database and seed a default user
-sequelize
-  .sync({ force: process.env.NODE_ENV !== "production" }) // Only force sync in development
-  .then(async () => {
-    // Check if the default user exists before creating
+// Seed a default user
+const seedDefaultUser = async () => {
+  try {
     const existingUser = await User.findOne({
       where: { email: "admin@example.com" },
     });
@@ -688,13 +652,14 @@ sequelize
     } else {
       console.log("Default admin user already exists");
     }
+  } catch (error) {
+    console.error("Error seeding default user:", error);
+  }
+};
 
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => {
-      console.log(`✅ Backend server running on port ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error("❌ Failed to sync database:", err);
-    process.exit(1);
-  });
+// Start the server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, async () => {
+  console.log(`✅ Backend server running on port ${PORT}`);
+  await seedDefaultUser();
+});

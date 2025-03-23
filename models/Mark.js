@@ -13,34 +13,32 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       year: {
-        // New field
         type: DataTypes.STRING,
         allowNull: false,
       },
       internal: {
-        // New field
-        type: DataTypes.DECIMAL(5, 2),
+        type: DataTypes.INTEGER,
         allowNull: false,
       },
       exam: {
-        // New field
-        type: DataTypes.DECIMAL(5, 2),
+        type: DataTypes.INTEGER,
         allowNull: false,
       },
       totalInternal: {
-        // New field
-        type: DataTypes.DECIMAL(5, 2),
+        type: DataTypes.INTEGER,
         allowNull: false,
       },
       totalExam: {
-        // New field
-        type: DataTypes.DECIMAL(5, 2),
+        type: DataTypes.INTEGER,
         allowNull: false,
       },
-      timestamp: {
+      createdAt: {
         type: DataTypes.DATE,
         allowNull: false,
-        defaultValue: DataTypes.NOW,
+      },
+      updatedAt: {
+        type: DataTypes.DATE,
+        allowNull: false,
       },
     },
     {
@@ -53,7 +51,10 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "student_id",
       targetKey: "student_id",
     });
-    Mark.hasMany(models.MarksCoMapping, { foreignKey: "mark_id" });
+    Mark.hasMany(models.MarksCoMapping, {
+      foreignKey: "mark_id",
+      sourceKey: "id",
+    });
   };
 
   return Mark;

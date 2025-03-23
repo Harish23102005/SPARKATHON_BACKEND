@@ -1,4 +1,3 @@
-// CoPoMapping.js
 module.exports = (sequelize, DataTypes) => {
   const CoPoMapping = sequelize.define(
     "CoPoMapping",
@@ -9,26 +8,37 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         autoIncrement: true,
       },
-      co_id: {
-        type: DataTypes.INTEGER,
+      student_id: {
+        type: DataTypes.STRING,
         allowNull: false,
       },
-      po_id: {
-        type: DataTypes.STRING(10),
+      coId: {
+        type: DataTypes.STRING,
         allowNull: false,
       },
-      weight: {
-        type: DataTypes.INTEGER,
+      poMapping: {
+        type: DataTypes.JSON, // Store poMapping as JSON
+        allowNull: false,
+      },
+      createdAt: {
+        type: DataTypes.DATE,
+        allowNull: false,
+      },
+      updatedAt: {
+        type: DataTypes.DATE,
         allowNull: false,
       },
     },
     {
-      tableName: "co_po_mapping",
+      tableName: "co_po_mappings",
     }
   );
 
   CoPoMapping.associate = (models) => {
-    CoPoMapping.belongsTo(models.CourseOutcome, { foreignKey: "co_id" });
+    CoPoMapping.belongsTo(models.Student, {
+      foreignKey: "student_id",
+      targetKey: "student_id",
+    });
   };
 
   return CoPoMapping;

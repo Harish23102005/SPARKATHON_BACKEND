@@ -18,7 +18,6 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       department: {
-        // New field
         type: DataTypes.STRING,
         allowNull: false,
       },
@@ -46,6 +45,10 @@ module.exports = (sequelize, DataTypes) => {
       sourceKey: "student_id",
     });
     Student.hasMany(models.CourseOutcome, {
+      foreignKey: "student_id",
+      sourceKey: "student_id",
+    });
+    Student.hasMany(models.CoPoMapping, {
       foreignKey: "student_id",
       sourceKey: "student_id",
     });

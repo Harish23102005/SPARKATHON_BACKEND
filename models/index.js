@@ -1,14 +1,13 @@
-// models/index.js
-const Sequelize = require("sequelize");
+const { Sequelize, DataTypes } = require("sequelize");
 const sequelize = require("../config/database");
 
 const models = {
-  Student: require("./Student")(sequelize, Sequelize.DataTypes),
-  User: require("./User")(sequelize, Sequelize.DataTypes),
-  Mark: require("./Mark")(sequelize, Sequelize.DataTypes),
-  CourseOutcome: require("./CourseOutcome")(sequelize, Sequelize.DataTypes),
-  CoPoMapping: require("./CoPoMapping")(sequelize, Sequelize.DataTypes),
-  MarksCoMapping: require("./MarksCoMapping")(sequelize, Sequelize.DataTypes),
+  User: require("./User")(sequelize, DataTypes),
+  Student: require("./Student")(sequelize, DataTypes),
+  Mark: require("./Mark")(sequelize, DataTypes),
+  MarksCoMapping: require("./MarksCoMapping")(sequelize, DataTypes),
+  CourseOutcome: require("./CourseOutcome")(sequelize, DataTypes),
+  CoPoMapping: require("./CoPoMapping")(sequelize, DataTypes),
 };
 
 // Set up associations

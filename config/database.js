@@ -3,7 +3,13 @@ const { Sequelize } = require("sequelize");
 
 const sequelize = new Sequelize(process.env.DATABASE_URL, {
   dialect: "postgres",
-  logging: false, // Disable logging for cleaner console output (optional)
+  logging: false,
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false, // Required for Render's PostgreSQL
+    },
+  },
 });
 
 sequelize

@@ -1,4 +1,3 @@
-// CourseOutcome.js
 module.exports = (sequelize, DataTypes) => {
   const CourseOutcome = sequelize.define(
     "CourseOutcome",
@@ -13,16 +12,20 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: false,
       },
-      co_id: {
-        type: DataTypes.STRING(10),
+      coId: {
+        type: DataTypes.STRING,
         allowNull: false,
       },
-      description: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-      },
       target: {
-        type: DataTypes.DECIMAL(5, 2),
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      },
+      createdAt: {
+        type: DataTypes.DATE,
+        allowNull: false,
+      },
+      updatedAt: {
+        type: DataTypes.DATE,
         allowNull: false,
       },
     },
@@ -36,8 +39,6 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "student_id",
       targetKey: "student_id",
     });
-    CourseOutcome.hasMany(models.CoPoMapping, { foreignKey: "co_id" });
-    CourseOutcome.hasMany(models.MarksCoMapping, { foreignKey: "co_id" });
   };
 
   return CourseOutcome;
