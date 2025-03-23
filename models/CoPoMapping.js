@@ -13,18 +13,14 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       coId: {
-        type: DataTypes.INTEGER, // Changed to INTEGER
+        type: DataTypes.STRING, // Changed to STRING to match frontend
         allowNull: false,
         field: "co_id",
       },
       poId: {
-        type: DataTypes.STRING(10), // Matches varchar(10)
+        type: DataTypes.STRING(10),
         allowNull: false,
         field: "po_id",
-      },
-      weight: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
       },
       createdAt: {
         type: DataTypes.DATE,
@@ -42,7 +38,7 @@ module.exports = (sequelize, DataTypes) => {
 
   CoPoMapping.associate = (models) => {
     CoPoMapping.belongsTo(models.Student, { foreignKey: "student_id" });
-    CoPoMapping.belongsTo(models.CourseOutcome, { foreignKey: "coId" }); // Adjust model name
+    CoPoMapping.belongsTo(models.CourseOutcome, { foreignKey: "coId" });
   };
 
   return CoPoMapping;
