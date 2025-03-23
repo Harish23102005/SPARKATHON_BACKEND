@@ -15,9 +15,10 @@ module.exports = (sequelize, DataTypes) => {
       coId: {
         type: DataTypes.STRING,
         allowNull: false,
+        field: "co_id", // Map coId to co_id column
       },
       poMapping: {
-        type: DataTypes.JSON, // Store poMapping as JSON
+        type: DataTypes.JSON,
         allowNull: false,
       },
       createdAt: {
@@ -30,15 +31,12 @@ module.exports = (sequelize, DataTypes) => {
       },
     },
     {
-      tableName: "co_po_mappings",
+      tableName: "co_po_mapping",
     }
   );
 
   CoPoMapping.associate = (models) => {
-    CoPoMapping.belongsTo(models.Student, {
-      foreignKey: "student_id",
-      targetKey: "student_id",
-    });
+    CoPoMapping.belongsTo(models.Student, { foreignKey: "student_id" });
   };
 
   return CoPoMapping;
