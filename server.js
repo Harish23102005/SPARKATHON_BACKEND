@@ -7,7 +7,11 @@ const bcrypt = require("bcryptjs");
 const app = express();
 
 // Middleware
-const allowedOrigins = [process.env.FRONTEND_URL || "http://localhost:3000"];
+const allowedOrigins = [
+  process.env.FRONTEND_URL || "http://localhost:3000",
+  "https://student-performance-tracker-frontend.vercel.app",
+];
+
 console.log("Allowed Origins:", allowedOrigins);
 
 app.use(
@@ -17,9 +21,7 @@ app.use(
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        console.error(
-          `CORS Error: Origin ${origin} not allowed. Allowed origins: ${allowedOrigins}`
-        );
+        console.error(`CORS Error: Origin ${origin} not allowed.`);
         callback(new Error(`CORS policy: Origin ${origin} not allowed`));
       }
     },
