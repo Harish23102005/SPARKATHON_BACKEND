@@ -13,8 +13,8 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       coId: {
-        // Change from co_id to coId
-        type: DataTypes.STRING, // Change from INTEGER to STRING
+        // Change to camelCase to match payload
+        type: DataTypes.STRING, // Change to STRING
         allowNull: false,
       },
       internal: {
@@ -44,13 +44,13 @@ module.exports = (sequelize, DataTypes) => {
       },
     },
     {
-      tableName: "marks_co_mappings", // Fix table name to match migration
+      tableName: "marks_co_mapping",
     }
   );
 
   MarksCoMapping.associate = (models) => {
     MarksCoMapping.belongsTo(models.Mark, { foreignKey: "mark_id" });
-    // Remove the CourseOutcome association unless coId references an actual CourseOutcome record
+    // Remove the CourseOutcome association
     // MarksCoMapping.belongsTo(models.CourseOutcome, { foreignKey: "coId" });
   };
 
