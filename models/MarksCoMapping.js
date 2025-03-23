@@ -16,6 +16,7 @@ module.exports = (sequelize, DataTypes) => {
         // Change to camelCase to match payload
         type: DataTypes.STRING, // Change to STRING
         allowNull: false,
+        field: "co_id",
       },
       internal: {
         type: DataTypes.DECIMAL(5, 2),
