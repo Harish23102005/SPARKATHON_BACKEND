@@ -19,7 +19,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       poId: {
         type: DataTypes.STRING(10),
-        allowNull: false,
+        allowNull: true,
         field: "po_id",
       },
       createdAt: {
