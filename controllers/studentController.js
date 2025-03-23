@@ -100,7 +100,7 @@ const addStudent = async (req, res) => {
           await CourseOutcome.create(
             {
               student_id: studentId,
-              coId: co.coId,
+              coId: co.coId, // This should now work with the updated model
               target: co.target,
               createdAt: new Date(),
               updatedAt: new Date(),
