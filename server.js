@@ -10,20 +10,33 @@ const app = express();
 
 // Middleware
 // Update CORS to allow only your Netlify frontend in production
-const allowedOrigins = [
-  process.env.FRONTEND_URL || "http://localhost:3000", // Add your Netlify URL in .env
-];
+const allowedOrigins = [process.env.FRONTEND_URL || "http://localhost:3000"];
+
+// Log the allowed origins for debugging
+console.log("Allowed Origins:", allowedOrigins);
+
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Log the incoming origin for debugging
+      console.log("Incoming Origin:", origin);
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error("Not allowed by CORS"));
+        console.error(
+          `CORS Error: Origin ${origin} not allowed. Allowed origins: ${allowedOrigins}`
+        );
+        callback(new Error(`CORS policy: Origin ${origin} not allowed`));
       }
     },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Allow these HTTP methods
+    allowedHeaders: ["Content-Type", "Authorization"], // Allow these headers
+    credentials: true, // Allow credentials (if needed, e.g., for cookies or auth headers)
   })
 );
+
+// Handle preflight requests explicitly (optional, but recommended for clarity)
+app.options("*", cors()); // Respond to all OPTIONS requests
 app.use(express.json());
 
 // Configure multer for file uploads
