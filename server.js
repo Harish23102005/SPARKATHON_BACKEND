@@ -35,8 +35,8 @@ app.use(express.json());
 // Import routes and database
 let authRoutes, studentRoutes, sequelize, User;
 try {
-  authRoutes = require("./routes/authRoutes");
-  studentRoutes = require("./routes/studentRoutes");
+  authRoutes = require("../routes/authRoutes");
+  studentRoutes = require("../routes/studentRoutes");
   sequelize = require("./config/database");
   ({ User } = require(".models"));
 } catch (error) {
