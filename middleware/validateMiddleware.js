@@ -1,5 +1,32 @@
 const Joi = require("joi");
 
+const validateSignup = (req, res, next) => {
+  const schema = Joi.object({
+    email: Joi.string().email().required(),
+    password: Joi.string().min(6).required(),
+  });
+
+  const { error } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({ error: error.details[0].message });
+  }
+  next();
+};
+
+const validateLogin = (req, res, next) => {
+  const schema = Joi.object({
+    email: Joi.string().email().required(),
+    password: Joi.string().required(),
+  });
+
+  const { error } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({ error: error.details[0].message });
+  }
+  next();
+};
+
+// Existing validation for student routes
 const validateStudentInput = (req, res, next) => {
   const schema = Joi.object({
     studentId: Joi.string().required(),
@@ -14,7 +41,7 @@ const validateStudentInput = (req, res, next) => {
         totalExam: Joi.number().max(999.99).required(),
         coMapping: Joi.array().items(
           Joi.object({
-            coId: Joi.string().required(), // coId is a string
+            coId: Joi.string().required(),
             internal: Joi.number().max(999.99).required(),
             exam: Joi.number().max(999.99).required(),
             totalInternal: Joi.number().max(999.99).required(),
@@ -60,7 +87,7 @@ const validateMarksUpdate = (req, res, next) => {
         totalExam: Joi.number().max(999.99).required(),
         coMapping: Joi.array().items(
           Joi.object({
-            coId: Joi.string().required(), // coId is a string
+            coId: Joi.string().required(),
             internal: Joi.number().max(999.99).required(),
             exam: Joi.number().max(999.99).required(),
             totalInternal: Joi.number().max(999.99).required(),
@@ -79,6 +106,8 @@ const validateMarksUpdate = (req, res, next) => {
 };
 
 module.exports = {
+  validateSignup,
+  validateLogin,
   validateStudentInput,
   validateMarksUpdate,
 };
