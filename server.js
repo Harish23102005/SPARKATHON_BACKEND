@@ -33,16 +33,16 @@ app.options("*", cors());
 app.use(express.json());
 
 // Import routes
-const authRoutes = require("./Backend/routes/authRoutes");
-const studentRoutes = require("./Backend/routes/studentRoutes");
+const authRoutes = require("./routes/authRoutes"); // Update path
+const studentRoutes = require("./routes/studentRoutes"); // Update path
 
 // Routes
 app.use("/api", authRoutes);
 app.use("/api/students", studentRoutes);
 
 // Import database and models
-const sequelize = require("./Backend/config/database");
-const { User } = require("./Backend/models");
+const sequelize = require("./backend/config/database");
+const { User } = require("./backend/models");
 
 // Seed a default user
 const seedDefaultUser = async () => {
