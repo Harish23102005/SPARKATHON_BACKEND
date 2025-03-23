@@ -15,9 +15,10 @@ module.exports = (sequelize, DataTypes) => {
       coId: {
         type: DataTypes.STRING,
         allowNull: false,
+        field: "co_id", // Map coId to co_id column
       },
       target: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.FLOAT,
         allowNull: false,
       },
       createdAt: {
@@ -35,10 +36,7 @@ module.exports = (sequelize, DataTypes) => {
   );
 
   CourseOutcome.associate = (models) => {
-    CourseOutcome.belongsTo(models.Student, {
-      foreignKey: "student_id",
-      targetKey: "student_id",
-    });
+    CourseOutcome.belongsTo(models.Student, { foreignKey: "student_id" });
   };
 
   return CourseOutcome;
