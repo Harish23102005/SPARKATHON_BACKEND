@@ -5,7 +5,14 @@ const {
   CourseOutcome,
   CoPoMapping,
 } = require("../models");
-const XLSX = require("xlsx");
+const ExcelJS = require("exceljs"); // Replace xlsx with exceljs
+
+// Function to map percentage to CO level (1 to 3)
+const mapPercentageToLevel = (percentage) => {
+  if (percentage >= 70) return 3;
+  if (percentage >= 60) return 2;
+  return 1;
+};
 
 const getAllStudents = async (req, res) => {
   try {
@@ -313,40 +320,69 @@ const uploadSemesterResults = async (req, res) => {
       });
     }
 
+    // Helper function to read Excel file using ExcelJS
+    const readExcelFile = async (buffer) => {
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(buffer);
+      return workbook;
+    };
+
     console.log("Parsing Internal file...");
-    const internalWb = XLSX.read(req.files.internal[0].buffer, {
-      type: "buffer",
-    });
+    const internalWb = await readExcelFile(req.files.internal[0].buffer);
     console.log("Parsing Assignment file...");
-    const assignmentWb = XLSX.read(req.files.assignment[0].buffer, {
-      type: "buffer",
-    });
+    const assignmentWb = await readExcelFile(req.files.assignment[0].buffer);
     console.log("Parsing Class Test file...");
-    const classTestWb = XLSX.read(req.files.classTest[0].buffer, {
-      type: "buffer",
-    });
+    const classTestWb = await readExcelFile(req.files.classTest[0].buffer);
     console.log("Parsing Semester file...");
-    const semesterWb = XLSX.read(req.files.semester[0].buffer, {
-      type: "buffer",
-    });
+    const semesterWb = await readExcelFile(req.files.semester[0].buffer);
 
-    console.log("Internal Workbook Sheet Names:", internalWb.SheetNames);
-    console.log("Assignment Workbook Sheet Names:", assignmentWb.SheetNames);
-    console.log("Class Test Workbook Sheet Names:", classTestWb.SheetNames);
-    console.log("Semester Workbook Sheet Names:", semesterWb.SheetNames);
+    console.log(
+      "Internal Workbook Sheet Names:",
+      internalWb.worksheets.map((ws) => ws.name)
+    );
+    console.log(
+      "Assignment Workbook Sheet Names:",
+      assignmentWb.worksheets.map((ws) => ws.name)
+    );
+    console.log(
+      "Class Test Workbook Sheet Names:",
+      classTestWb.worksheets.map((ws) => ws.name)
+    );
+    console.log(
+      "Semester Workbook Sheet Names:",
+      semesterWb.worksheets.map((ws) => ws.name)
+    );
 
-    const internalSheets = internalWb.SheetNames.slice(0, 3).map((sheetName) =>
-      XLSX.utils.sheet_to_json(internalWb.Sheets[sheetName])
-    );
-    const assignmentSheets = assignmentWb.SheetNames.slice(0, 3).map(
-      (sheetName) => XLSX.utils.sheet_to_json(assignmentWb.Sheets[sheetName])
-    );
-    const classTestSheets = classTestWb.SheetNames.slice(0, 2).map(
-      (sheetName) => XLSX.utils.sheet_to_json(classTestWb.Sheets[sheetName])
-    );
-    const semesterSheets = semesterWb.SheetNames.slice(0, 1).map((sheetName) =>
-      XLSX.utils.sheet_to_json(semesterWb.Sheets[sheetName])
-    );
+    // Helper function to convert worksheet to JSON
+    const sheetToJson = (worksheet) => {
+      const json = [];
+      let headers = [];
+      worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+        if (rowNumber === 1) {
+          headers = row.values.slice(1); // Skip the first cell if it's empty
+        } else {
+          const rowData = {};
+          row.values.slice(1).forEach((cell, index) => {
+            rowData[headers[index]] = cell;
+          });
+          json.push(rowData);
+        }
+      });
+      return json;
+    };
+
+    const internalSheets = internalWb.worksheets
+      .slice(0, 3)
+      .map((worksheet) => sheetToJson(worksheet));
+    const assignmentSheets = assignmentWb.worksheets
+      .slice(0, 3)
+      .map((worksheet) => sheetToJson(worksheet));
+    const classTestSheets = classTestWb.worksheets
+      .slice(0, 2)
+      .map((worksheet) => sheetToJson(worksheet));
+    const semesterSheets = semesterWb.worksheets
+      .slice(0, 1)
+      .map((worksheet) => sheetToJson(worksheet));
 
     if (
       internalSheets.length === 0 ||
@@ -500,8 +536,7 @@ const uploadSemesterResults = async (req, res) => {
         const coId = `CO${k}`;
         const percentageAbove60 =
           studentCount > 0 ? (studentsAbove60[coId] / studentCount) * 100 : 0;
-        const level =
-          percentageAbove60 >= 70 ? 3 : percentageAbove60 >= 60 ? 2 : 1;
+        const level = mapPercentageToLevel(percentageAbove60);
         coAttainment[`internal${i}`][coId] =
           internalMaxMarks[`internal${i}`][coId] > 0 ? level : "-";
         console.log(
@@ -601,8 +636,7 @@ const uploadSemesterResults = async (req, res) => {
         const coId = `CO${k}`;
         const percentageAbove60 =
           studentCount > 0 ? (studentsAbove60[coId] / studentCount) * 100 : 0;
-        const level =
-          percentageAbove60 >= 70 ? 3 : percentageAbove60 >= 60 ? 2 : 1;
+        const level = mapPercentageToLevel(percentageAbove60);
         coAttainment[`assignment${i}`][coId] = level;
         console.log(
           `Assignment ${i}, ${coId}: Students Above 60%=${
@@ -689,8 +723,7 @@ const uploadSemesterResults = async (req, res) => {
         const coId = `CO${k}`;
         const percentageAbove60 =
           studentCount > 0 ? (studentsAbove60[coId] / studentCount) * 100 : 0;
-        const level =
-          percentageAbove60 >= 70 ? 3 : percentageAbove60 >= 60 ? 2 : 1;
+        const level = mapPercentageToLevel(percentageAbove60);
         coAttainment[`classTest${i}`][coId] = level;
         console.log(
           `Class Test ${i}, ${coId}: Students Above 60%=${
@@ -786,7 +819,7 @@ const uploadSemesterResults = async (req, res) => {
         const department = semesterData[i]["Department"] || "Unknown";
         const total = Number(semesterData[i]["Mark"]) || 0;
         const percentage = (total / 100) * 100;
-        const level = percentage >= 70 ? 3 : percentage >= 60 ? 2 : 1;
+        const level = mapPercentageToLevel(percentage);
 
         // Check if student exists, if not create a new one
         let student = await Student.findOne({
@@ -908,11 +941,9 @@ const uploadSemesterResults = async (req, res) => {
     } catch (error) {
       await transaction.rollback();
       console.error("Error processing semester results:", error);
-      res
-        .status(500)
-        .json({
-          error: "Failed to process semester results: " + error.message,
-        });
+      res.status(500).json({
+        error: "Failed to process semester results: " + error.message,
+      });
     }
   } catch (error) {
     console.error("Error uploading semester results:", error);
