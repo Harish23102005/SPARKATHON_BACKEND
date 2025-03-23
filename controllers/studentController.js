@@ -5,7 +5,7 @@ const {
   CourseOutcome,
   CoPoMapping,
 } = require("../models");
-const ExcelJS = require("exceljs"); // Replace xlsx with exceljs
+const ExcelJS = require("exceljs");
 
 // Function to map percentage to CO level (1 to 3)
 const mapPercentageToLevel = (percentage) => {
@@ -22,8 +22,21 @@ const getAllStudents = async (req, res) => {
         { model: CourseOutcome },
         { model: CoPoMapping },
       ],
+      where: {
+        student_id: {
+          [Op.ne]: null, // Ensure student_id is not null
+          [Op.ne]: "", // Ensure student_id is not an empty string
+        },
+      },
     });
-    res.json(students);
+    // Additional validation to filter out invalid student_id values
+    const validStudents = students.filter(
+      (student) =>
+        student.student_id &&
+        typeof student.student_id === "string" &&
+        student.student_id.trim() !== ""
+    );
+    res.json(validStudents);
   } catch (error) {
     console.error("Error fetching students:", error);
     res.status(500).json({ error: "Failed to fetch students" });
@@ -35,6 +48,16 @@ const addStudent = async (req, res) => {
   try {
     const { studentId, name, department, marks, courseOutcomes, coPoMapping } =
       req.body;
+
+    // Validate studentId
+    if (
+      !studentId ||
+      typeof studentId !== "string" ||
+      studentId.trim() === ""
+    ) {
+      await transaction.rollback();
+      return res.status(400).json({ error: "Invalid student ID" });
+    }
 
     const studentData = {
       student_id: studentId,
@@ -160,6 +183,16 @@ const updateMarks = async (req, res) => {
     const { studentId } = req.params;
     const { marks } = req.body;
 
+    // Validate studentId
+    if (
+      !studentId ||
+      typeof studentId !== "string" ||
+      studentId.trim() === ""
+    ) {
+      await transaction.rollback();
+      return res.status(400).json({ error: "Invalid student ID" });
+    }
+
     const student = await Student.findOne({
       where: { student_id: studentId },
       transaction,
@@ -236,6 +269,16 @@ const updateMarks = async (req, res) => {
 const deleteStudent = async (req, res) => {
   try {
     const { studentId } = req.params;
+
+    // Validate studentId
+    if (
+      !studentId ||
+      typeof studentId !== "string" ||
+      studentId.trim() === ""
+    ) {
+      return res.status(400).json({ error: "Invalid student ID" });
+    }
+
     const student = await Student.findOne({ where: { student_id: studentId } });
     if (!student) {
       return res.status(404).json({ error: "Student not found" });
@@ -251,6 +294,16 @@ const deleteStudent = async (req, res) => {
 const calculateCoPoAttainment = async (req, res) => {
   try {
     const { studentId } = req.params;
+
+    // Validate studentId
+    if (
+      !studentId ||
+      typeof studentId !== "string" ||
+      studentId.trim() === ""
+    ) {
+      return res.status(400).json({ error: "Invalid student ID" });
+    }
+
     const student = await Student.findOne({
       where: { student_id: studentId },
       include: [
@@ -820,6 +873,12 @@ const uploadSemesterResults = async (req, res) => {
         const total = Number(semesterData[i]["Mark"]) || 0;
         const percentage = (total / 100) * 100;
         const level = mapPercentageToLevel(percentage);
+
+        // Validate studentId
+        if (!studentId || studentId.trim() === "") {
+          console.warn(`Skipping invalid student ID at row ${i + 1}`);
+          continue;
+        }
 
         // Check if student exists, if not create a new one
         let student = await Student.findOne({
