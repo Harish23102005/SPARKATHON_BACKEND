@@ -32,17 +32,21 @@ app.use(
 app.options("*", cors());
 app.use(express.json());
 
-// Import routes
-const authRoutes = require("./routes/authRoutes"); // Update path
-const studentRoutes = require("./routes/studentRoutes"); // Update path
+// Import routes and database
+let authRoutes, studentRoutes, sequelize, User;
+try {
+  authRoutes = require("./routes/authRoutes");
+  studentRoutes = require("./routes/studentRoutes");
+  sequelize = require("./backend/config/database");
+  ({ User } = require("./backend/models"));
+} catch (error) {
+  console.error("Failed to load required modules:", error.message);
+  process.exit(1);
+}
 
 // Routes
 app.use("/api", authRoutes);
 app.use("/api/students", studentRoutes);
-
-// Import database and models
-const sequelize = require("./backend/config/database");
-const { User } = require("./backend/models");
 
 // Seed a default user
 const seedDefaultUser = async () => {
@@ -81,7 +85,8 @@ const startServer = async () => {
       await seedDefaultUser();
     });
   } catch (error) {
-    console.error("Unable to connect to the database:", error);
+    console.error("Unable to connect to the database:", error.message);
+    console.error("Error details:", error);
     process.exit(1);
   }
 };
