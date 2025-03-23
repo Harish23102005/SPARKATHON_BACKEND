@@ -2,6 +2,14 @@
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
+    // Drop existing tables (to start fresh)
+    await queryInterface.dropTable("co_po_mappings", { cascade: true });
+    await queryInterface.dropTable("course_outcomes", { cascade: true });
+    await queryInterface.dropTable("marks_co_mappings", { cascade: true });
+    await queryInterface.dropTable("marks", { cascade: true });
+    await queryInterface.dropTable("students", { cascade: true });
+    await queryInterface.dropTable("Users", { cascade: true });
+
     // Create Users table
     await queryInterface.createTable("Users", {
       id: {
@@ -62,7 +70,7 @@ module.exports = {
       },
     });
 
-    // Create Marks table
+    // Create Marks table (without timestamp column)
     await queryInterface.createTable("marks", {
       id: {
         type: Sequelize.INTEGER,
