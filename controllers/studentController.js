@@ -1,4 +1,4 @@
-const { Sequelize, Op } = require("sequelize"); // Import Sequelize and Op
+const { Sequelize, Op } = require("sequelize");
 const {
   Student,
   Mark,
@@ -15,6 +15,21 @@ const mapPercentageToLevel = (percentage) => {
   return 1;
 };
 
+// Function to calculate student average based on all marks
+const calculateStudentAverage = (marks) => {
+  if (!marks || marks.length === 0) return null;
+
+  const totalPercentage = marks.reduce((sum, mark) => {
+    const internalPercentage =
+      (mark.internal / (mark.totalInternal || 1)) * 100;
+    const examPercentage = (mark.exam / (mark.totalExam || 1)) * 100;
+    return sum + (internalPercentage + examPercentage) / 2;
+  }, 0);
+
+  const average = totalPercentage / marks.length;
+  return average.toFixed(2);
+};
+
 const getAllStudents = async (req, res) => {
   try {
     const students = await Student.findAll({
@@ -25,19 +40,19 @@ const getAllStudents = async (req, res) => {
       ],
       where: {
         student_id: {
-          [Op.ne]: null, // Ensure student_id is not null
-          [Op.ne]: "", // Ensure student_id is not an empty string
+          [Op.ne]: null,
+          [Op.ne]: "",
         },
       },
     });
-    // Additional validation to filter out invalid student_id values
+
     const validStudents = students.filter(
       (student) =>
         student.student_id &&
         typeof student.student_id === "string" &&
         student.student_id.trim() !== ""
     );
-    console.log("Returning students:", validStudents); // Add this log
+    console.log("Returning students:", validStudents);
     res.json(validStudents);
   } catch (error) {
     console.error("Error fetching students:", error.message, error.stack);
@@ -53,7 +68,6 @@ const addStudent = async (req, res) => {
     const { studentId, name, department, marks, courseOutcomes, coPoMapping } =
       req.body;
 
-    // Validate studentId
     if (
       !studentId ||
       typeof studentId !== "string" ||
@@ -63,11 +77,11 @@ const addStudent = async (req, res) => {
       return res.status(400).json({ error: "Invalid student ID" });
     }
 
-    // Validate name and department
     if (!name || typeof name !== "string" || name.trim() === "") {
       await transaction.rollback();
       return res.status(400).json({ error: "Invalid student name" });
     }
+
     if (
       !department ||
       typeof department !== "string" ||
@@ -101,13 +115,12 @@ const addStudent = async (req, res) => {
     if (marks && Array.isArray(marks) && marks.length > 0) {
       await Promise.all(
         marks.map(async (mark) => {
-          // Validate mark data
           if (
             !mark.year ||
-            !mark.internal ||
-            !mark.exam ||
-            !mark.totalInternal ||
-            !mark.totalExam
+            mark.internal === undefined ||
+            mark.exam === undefined ||
+            mark.totalInternal === undefined ||
+            mark.totalExam === undefined
           ) {
             throw new Error("Invalid mark data: missing required fields");
           }
@@ -132,13 +145,12 @@ const addStudent = async (req, res) => {
           ) {
             await Promise.all(
               mark.coMapping.map(async (coMap) => {
-                // Validate coMapping data
                 if (
                   !coMap.coId ||
-                  !coMap.internal ||
-                  !coMap.exam ||
-                  !coMap.totalInternal ||
-                  !coMap.totalExam
+                  coMap.internal === undefined ||
+                  coMap.exam === undefined ||
+                  coMap.totalInternal === undefined ||
+                  coMap.totalExam === undefined
                 ) {
                   throw new Error(
                     "Invalid CO mapping data: missing required fields"
@@ -171,8 +183,7 @@ const addStudent = async (req, res) => {
     ) {
       await Promise.all(
         courseOutcomes.map(async (co) => {
-          // Validate course outcome data
-          if (!co.coId || !co.target) {
+          if (!co.coId || co.target === undefined) {
             throw new Error(
               "Invalid course outcome data: missing required fields"
             );
@@ -194,7 +205,6 @@ const addStudent = async (req, res) => {
     if (coPoMapping && Array.isArray(coPoMapping) && coPoMapping.length > 0) {
       await Promise.all(
         coPoMapping.map(async (mapping) => {
-          // Validate CO-PO mapping data
           if (!mapping.coId || !mapping.poMapping) {
             throw new Error(
               "Invalid CO-PO mapping data: missing required fields"
@@ -213,6 +223,14 @@ const addStudent = async (req, res) => {
         })
       );
     }
+
+    // Calculate and update average
+    const createdMarks = await Mark.findAll({
+      where: { student_id: studentId },
+      transaction,
+    });
+    const average = calculateStudentAverage(createdMarks);
+    await newStudent.update({ average }, { transaction });
 
     const createdStudent = await Student.findOne({
       where: { student_id: studentId },
@@ -241,9 +259,8 @@ const updateMarks = async (req, res) => {
   const transaction = await Student.sequelize.transaction();
   try {
     const { studentId } = req.params;
-    const { marks, courseOutcomes } = req.body;
+    const { marks, average } = req.body;
 
-    // Validate studentId
     if (
       !studentId ||
       typeof studentId !== "string" ||
@@ -255,6 +272,7 @@ const updateMarks = async (req, res) => {
 
     const student = await Student.findOne({
       where: { student_id: studentId },
+      include: [{ model: Mark, include: [MarksCoMapping] }],
       transaction,
     });
     if (!student) {
@@ -262,23 +280,16 @@ const updateMarks = async (req, res) => {
       return res.status(404).json({ error: "Student not found" });
     }
 
-    // Delete existing marks and CO mappings
-    await Mark.destroy({ where: { student_id: studentId }, transaction });
-    await CourseOutcome.destroy({
-      where: { student_id: studentId },
-      transaction,
-    });
-
+    // Append new marks instead of deleting existing ones
     if (marks && Array.isArray(marks) && marks.length > 0) {
       await Promise.all(
         marks.map(async (mark) => {
-          // Validate mark data
           if (
             !mark.year ||
-            !mark.internal ||
-            !mark.exam ||
-            !mark.totalInternal ||
-            !mark.totalExam
+            mark.internal === undefined ||
+            mark.exam === undefined ||
+            mark.totalInternal === undefined ||
+            mark.totalExam === undefined
           ) {
             throw new Error("Invalid mark data: missing required fields");
           }
@@ -303,13 +314,12 @@ const updateMarks = async (req, res) => {
           ) {
             await Promise.all(
               mark.coMapping.map(async (coMap) => {
-                // Validate coMapping data
                 if (
                   !coMap.coId ||
-                  !coMap.internal ||
-                  !coMap.exam ||
-                  !coMap.totalInternal ||
-                  !coMap.totalExam
+                  coMap.internal === undefined ||
+                  coMap.exam === undefined ||
+                  coMap.totalInternal === undefined ||
+                  coMap.totalExam === undefined
                 ) {
                   throw new Error(
                     "Invalid CO mapping data: missing required fields"
@@ -335,6 +345,69 @@ const updateMarks = async (req, res) => {
       );
     }
 
+    // Recalculate average based on all marks
+    const allMarks = await Mark.findAll({
+      where: { student_id: studentId },
+      transaction,
+    });
+    const newAverage = calculateStudentAverage(allMarks);
+    await student.update({ average: newAverage }, { transaction });
+
+    const updatedStudent = await Student.findOne({
+      where: { student_id: studentId },
+      include: [
+        { model: Mark, include: [MarksCoMapping] },
+        { model: CourseOutcome },
+        { model: CoPoMapping },
+      ],
+      transaction,
+    });
+
+    await transaction.commit();
+    res.json({
+      message: "Marks updated successfully",
+      student: updatedStudent,
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Error updating marks:", error.message, error.stack);
+    res.status(500).json({ error: "Failed to update marks: " + error.message });
+  }
+};
+
+// New function to update course outcomes
+const updateCourseOutcomes = async (req, res) => {
+  const transaction = await Student.sequelize.transaction();
+  try {
+    const { studentId } = req.params;
+    const { courseOutcomes } = req.body;
+
+    if (
+      !studentId ||
+      typeof studentId !== "string" ||
+      studentId.trim() === ""
+    ) {
+      await transaction.rollback();
+      return res.status(400).json({ error: "Invalid student ID" });
+    }
+
+    const student = await Student.findOne({
+      where: { student_id: studentId },
+      include: [{ model: CourseOutcome }],
+      transaction,
+    });
+    if (!student) {
+      await transaction.rollback();
+      return res.status(404).json({ error: "Student not found" });
+    }
+
+    // Delete existing course outcomes
+    await CourseOutcome.destroy({
+      where: { student_id: studentId },
+      transaction,
+    });
+
+    // Add new course outcomes
     if (
       courseOutcomes &&
       Array.isArray(courseOutcomes) &&
@@ -342,8 +415,7 @@ const updateMarks = async (req, res) => {
     ) {
       await Promise.all(
         courseOutcomes.map(async (co) => {
-          // Validate course outcome data
-          if (!co.coId || !co.target) {
+          if (!co.coId || co.target === undefined) {
             throw new Error(
               "Invalid course outcome data: missing required fields"
             );
@@ -374,13 +446,19 @@ const updateMarks = async (req, res) => {
 
     await transaction.commit();
     res.json({
-      message: "Marks updated successfully",
+      message: "Course outcomes updated successfully",
       student: updatedStudent,
     });
   } catch (error) {
     await transaction.rollback();
-    console.error("Error updating marks:", error.message, error.stack);
-    res.status(500).json({ error: "Failed to update marks: " + error.message });
+    console.error(
+      "Error updating course outcomes:",
+      error.message,
+      error.stack
+    );
+    res
+      .status(500)
+      .json({ error: "Failed to update course outcomes: " + error.message });
   }
 };
 
@@ -388,7 +466,6 @@ const deleteStudent = async (req, res) => {
   try {
     const { studentId } = req.params;
 
-    // Validate studentId
     if (
       !studentId ||
       typeof studentId !== "string" ||
@@ -415,7 +492,6 @@ const calculateCoPoAttainment = async (req, res) => {
   try {
     const { studentId } = req.params;
 
-    // Validate studentId
     if (
       !studentId ||
       typeof studentId !== "string" ||
@@ -438,20 +514,36 @@ const calculateCoPoAttainment = async (req, res) => {
     }
 
     const coSummary = [];
-    for (const mark of student.Marks || []) {
-      for (const coMap of mark.MarksCoMappings || []) {
-        const internalAttainment =
-          coMap.totalInternal !== 0
-            ? (coMap.internal / coMap.totalInternal) * 100
-            : 0;
-        const examAttainment =
-          coMap.totalExam !== 0 ? (coMap.exam / coMap.totalExam) * 100 : 0;
-        const avgAttainment = (internalAttainment + examAttainment) / 2;
-        coSummary.push({
-          coId: coMap.coId,
-          avgAttainment,
-        });
+    const courseOutcomes = student.CourseOutcomes || [];
+    const marks = student.Marks || [];
+
+    for (const co of courseOutcomes) {
+      let totalAttainment = 0;
+      let count = 0;
+
+      for (const mark of marks) {
+        const coMapping = mark.MarksCoMappings.find((m) => m.coId === co.coId);
+        if (coMapping) {
+          const internalAttainment =
+            coMapping.totalInternal !== 0
+              ? (coMapping.internal / coMapping.totalInternal) * 100
+              : 0;
+          const examAttainment =
+            coMapping.totalExam !== 0
+              ? (coMapping.exam / coMapping.totalExam) * 100
+              : 0;
+          const avgAttainment = (internalAttainment + examAttainment) / 2;
+          totalAttainment += avgAttainment;
+          count++;
+        }
       }
+
+      const avgAttainment = count > 0 ? totalAttainment / count : 0;
+      coSummary.push({
+        coId: co.coId,
+        avgAttainment: parseFloat(avgAttainment.toFixed(2)),
+        target: co.target,
+      });
     }
 
     const poSummary = [];
@@ -463,7 +555,7 @@ const calculateCoPoAttainment = async (req, res) => {
           const poAttainment = coAttainment * (po.weight / 3);
           poSummary.push({
             poId: po.poId,
-            avgAttainment: poAttainment,
+            avgAttainment: parseFloat(poAttainment.toFixed(2)),
           });
         }
       }
@@ -478,7 +570,6 @@ const calculateCoPoAttainment = async (req, res) => {
   }
 };
 
-// New function to handle semester results upload
 const uploadSemesterResults = async (req, res) => {
   try {
     console.log("Received upload request");
@@ -497,7 +588,6 @@ const uploadSemesterResults = async (req, res) => {
       });
     }
 
-    // Helper function to read Excel file using ExcelJS
     const readExcelFile = async (buffer) => {
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(buffer);
@@ -530,13 +620,12 @@ const uploadSemesterResults = async (req, res) => {
       semesterWb.worksheets.map((ws) => ws.name)
     );
 
-    // Helper function to convert worksheet to JSON
     const sheetToJson = (worksheet) => {
       const json = [];
       let headers = [];
       worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
         if (rowNumber === 1) {
-          headers = row.values.slice(1); // Skip the first cell if it's empty
+          headers = row.values.slice(1);
         } else {
           const rowData = {};
           row.values.slice(1).forEach((cell, index) => {
@@ -654,14 +743,7 @@ const uploadSemesterResults = async (req, res) => {
       }
 
       const internalData = internalSheets[i - 1];
-      const internalScores = {
-        CO1: 0,
-        CO2: 0,
-        CO3: 0,
-        CO4: 0,
-        CO5: 0,
-        CO6: 0,
-      };
+      const internalScores = { CO1: 0, CO2: 0, CO3: 0, CO4: 0, CO5: 0, CO6: 0 };
       const studentsAbove60 = {
         CO1: 0,
         CO2: 0,
@@ -727,14 +809,7 @@ const uploadSemesterResults = async (req, res) => {
     }
 
     console.log("Calculating Internal Average...");
-    const internalAverage = {
-      CO1: 0,
-      CO2: 0,
-      CO3: 0,
-      CO4: 0,
-      CO5: 0,
-      CO6: 0,
-    };
+    const internalAverage = { CO1: 0, CO2: 0, CO3: 0, CO4: 0, CO5: 0, CO6: 0 };
     const internalCounts = { CO1: 0, CO2: 0, CO3: 0, CO4: 0, CO5: 0, CO6: 0 };
 
     for (let k = 1; k <= 6; k++) {
@@ -998,13 +1073,11 @@ const uploadSemesterResults = async (req, res) => {
         const percentage = (total / 100) * 100;
         const level = mapPercentageToLevel(percentage);
 
-        // Validate studentId
         if (!studentId || studentId.trim() === "") {
           console.warn(`Skipping invalid student ID at row ${i + 1}`);
           continue;
         }
 
-        // Check if student exists, if not create a new one
         let student = await Student.findOne({
           where: { student_id: studentId },
           transaction,
@@ -1023,7 +1096,6 @@ const uploadSemesterResults = async (req, res) => {
           );
         }
 
-        // Add marks for the student
         const newMark = await Mark.create(
           {
             student_id: studentId,
@@ -1038,7 +1110,6 @@ const uploadSemesterResults = async (req, res) => {
           { transaction }
         );
 
-        // Add CO mappings for the student
         for (let k = 1; k <= 6; k++) {
           const coId = `CO${k}`;
           if (coMapping[coId]) {
@@ -1148,6 +1219,7 @@ module.exports = {
   getAllStudents,
   addStudent,
   updateMarks,
+  updateCourseOutcomes,
   deleteStudent,
   calculateCoPoAttainment,
   uploadSemesterResults,

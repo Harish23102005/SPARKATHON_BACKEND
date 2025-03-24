@@ -10,9 +10,10 @@ const {
   getAllStudents,
   addStudent,
   updateMarks,
+  updateCourseOutcomes, // Add the new controller function
   deleteStudent,
   calculateCoPoAttainment,
-  uploadSemesterResults, // Add the new controller function
+  uploadSemesterResults,
 } = require("../controllers/studentController");
 
 // Configure multer for file uploads
@@ -23,6 +24,11 @@ const upload = multer({ storage });
 router.get("/", authenticateToken, getAllStudents);
 router.post("/", authenticateToken, validateStudentInput, addStudent);
 router.put("/:studentId", authenticateToken, validateMarksUpdate, updateMarks);
+router.put(
+  "/:studentId/course-outcomes",
+  authenticateToken,
+  updateCourseOutcomes
+); // New route
 router.delete("/:studentId", authenticateToken, deleteStudent);
 router.get(
   "/calculate-co-po/:studentId",
@@ -30,7 +36,7 @@ router.get(
   calculateCoPoAttainment
 );
 
-// Add new route for uploading semester results
+// Route for uploading semester results
 router.post(
   "/upload-semester-results",
   authenticateToken,
