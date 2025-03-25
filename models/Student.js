@@ -30,7 +30,6 @@ module.exports = (sequelize, DataTypes) => {
   Student.associate = (models) => {
     Student.hasMany(models.Mark, { foreignKey: "student_id" });
     Student.hasMany(models.CourseOutcome, { foreignKey: "student_id" });
-    Student.hasMany(models.CoPoMapping, { foreignKey: "student_id" });
   };
 
   return Student;
