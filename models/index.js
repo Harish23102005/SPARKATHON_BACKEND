@@ -7,7 +7,6 @@ const models = {
   Mark: require("./Mark")(sequelize, DataTypes),
   MarksCoMapping: require("./MarksCoMapping")(sequelize, DataTypes),
   CourseOutcome: require("./CourseOutcome")(sequelize, DataTypes),
-  CoPoMapping: require("./CoPoMapping")(sequelize, DataTypes),
 };
 
 // Set up associations

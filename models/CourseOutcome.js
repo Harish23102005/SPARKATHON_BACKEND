@@ -44,10 +44,7 @@ module.exports = (sequelize, DataTypes) => {
 
   CourseOutcome.associate = (models) => {
     CourseOutcome.belongsTo(models.Student, { foreignKey: "student_id" });
-    CourseOutcome.hasMany(models.CoPoMapping, {
-      foreignKey: "coId",
-      sourceKey: "coId",
-    });
+    // Removed: CourseOutcome.hasMany(models.CoPoMapping, { foreignKey: "coId", sourceKey: "coId" });
   };
 
   return CourseOutcome;
