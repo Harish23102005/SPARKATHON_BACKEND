@@ -16,14 +16,6 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: false,
       },
-      marks: {
-        type: DataTypes.JSONB,
-        allowNull: true,
-      },
-      course_outcomes: {
-        type: DataTypes.JSONB,
-        allowNull: true,
-      },
       average: {
         type: DataTypes.FLOAT,
         allowNull: true,
@@ -35,10 +27,10 @@ module.exports = (sequelize, DataTypes) => {
     }
   );
 
-  // Define associations (if any)
   Student.associate = (models) => {
-    // Example: Student.hasMany(models.Mark);
-    // Add associations based on your schema
+    Student.hasMany(models.Mark, { foreignKey: "student_id" });
+    Student.hasMany(models.CourseOutcome, { foreignKey: "student_id" });
+    Student.hasMany(models.CoPoMapping, { foreignKey: "student_id" });
   };
 
   return Student;

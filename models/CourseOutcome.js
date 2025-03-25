@@ -1,3 +1,4 @@
+// models/CourseOutcome.js
 module.exports = (sequelize, DataTypes) => {
   const CourseOutcome = sequelize.define(
     "CourseOutcome",
@@ -15,7 +16,7 @@ module.exports = (sequelize, DataTypes) => {
       coId: {
         type: DataTypes.STRING,
         allowNull: false,
-        field: "co_id", // Map coId to co_id column
+        field: "co_id",
       },
       target: {
         type: DataTypes.FLOAT,
@@ -37,6 +38,7 @@ module.exports = (sequelize, DataTypes) => {
 
   CourseOutcome.associate = (models) => {
     CourseOutcome.belongsTo(models.Student, { foreignKey: "student_id" });
+    CourseOutcome.hasMany(models.CoPoMapping, { foreignKey: "coId" });
   };
 
   return CourseOutcome;

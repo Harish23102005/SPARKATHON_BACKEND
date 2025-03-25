@@ -62,7 +62,7 @@ const { User } = models;
 let authRoutes, studentRoutes;
 try {
   authRoutes = require("./routes/authRoutes");
-  studentRoutes = require("./routes/studentRoutes");
+  studentRoutes = require("./routes/studentRoutes")(models);
 } catch (error) {
   console.error("Failed to load routes:", error.message);
   console.error("Error stack:", error.stack);
@@ -102,7 +102,7 @@ const startServer = async () => {
     await sequelize.authenticate();
     console.log("Database connected successfully");
 
-    await sequelize.sync({ force: false });
+    await sequelize.sync({ force: true }); // Temporarily set to true to recreate tables
     console.log("Database synced successfully");
 
     app.listen(PORT, async () => {

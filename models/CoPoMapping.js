@@ -1,3 +1,4 @@
+// models/CoPoMapping.js
 module.exports = (sequelize, DataTypes) => {
   const CoPoMapping = sequelize.define(
     "CoPoMapping",
@@ -13,9 +14,13 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       coId: {
-        type: DataTypes.STRING, // Changed to STRING to match frontend
+        type: DataTypes.STRING,
         allowNull: false,
         field: "co_id",
+      },
+      poMapping: {
+        type: DataTypes.JSONB,
+        allowNull: false,
       },
       createdAt: {
         type: DataTypes.DATE,
