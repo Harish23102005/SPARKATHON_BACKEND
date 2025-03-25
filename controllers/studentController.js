@@ -1,11 +1,5 @@
 const { Sequelize, Op } = require("sequelize");
-const {
-  Student,
-  Mark,
-  MarksCoMapping,
-  CourseOutcome,
-  CoPoMapping,
-} = require("../models");
+const { Student, Mark, MarksCoMapping, CourseOutcome } = require("../models");
 const ExcelJS = require("exceljs");
 
 // Function to map percentage to CO level (1 to 3)
@@ -36,7 +30,6 @@ const getAllStudents = async (req, res) => {
       include: [
         { model: Mark, include: [MarksCoMapping], required: false },
         { model: CourseOutcome, required: false },
-        { model: CoPoMapping, required: false },
       ],
       where: {
         student_id: {
