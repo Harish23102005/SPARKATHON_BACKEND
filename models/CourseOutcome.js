@@ -33,6 +33,12 @@ module.exports = (sequelize, DataTypes) => {
     },
     {
       tableName: "course_outcomes",
+      indexes: [
+        {
+          unique: true,
+          fields: ["student_id", "co_id"], // Composite unique constraint
+        },
+      ],
     }
   );
 
@@ -40,7 +46,7 @@ module.exports = (sequelize, DataTypes) => {
     CourseOutcome.belongsTo(models.Student, { foreignKey: "student_id" });
     CourseOutcome.hasMany(models.CoPoMapping, {
       foreignKey: "coId",
-      sourceKey: "coId", // Specify that coId in CoPoMapping references the coId field in CourseOutcome
+      sourceKey: "coId",
     });
   };
 
