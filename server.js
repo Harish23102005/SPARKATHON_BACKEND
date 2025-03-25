@@ -1,3 +1,4 @@
+// server.js
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -10,7 +11,7 @@ const app = express();
 const allowedOrigins = [
   process.env.FRONTEND_URL || "http://localhost:3000",
   "https://student-performance-tracker-frontend.vercel.app",
-];
+].filter((origin, index, self) => self.indexOf(origin) === index); // Remove duplicates
 
 console.log("Allowed Origins:", allowedOrigins);
 
