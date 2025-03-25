@@ -38,7 +38,10 @@ module.exports = (sequelize, DataTypes) => {
 
   CoPoMapping.associate = (models) => {
     CoPoMapping.belongsTo(models.Student, { foreignKey: "student_id" });
-    CoPoMapping.belongsTo(models.CourseOutcome, { foreignKey: "coId" });
+    CoPoMapping.belongsTo(models.CourseOutcome, {
+      foreignKey: "coId",
+      targetKey: "coId", // Specify that coId references the coId field in CourseOutcome
+    });
   };
 
   return CoPoMapping;
