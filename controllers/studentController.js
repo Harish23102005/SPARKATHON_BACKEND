@@ -21,7 +21,7 @@ const calculateStudentAverage = (marks) => {
   }, 0);
 
   const average = totalPercentage / marks.length;
-  return average.toFixed(2);
+  return parseFloat(average.toFixed(2)); // Return number instead of string
 };
 
 const getAllStudents = async (req, res) => {

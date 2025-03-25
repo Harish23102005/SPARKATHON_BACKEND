@@ -5,8 +5,8 @@ module.exports = (sequelize, DataTypes) => {
     {
       student_id: {
         type: DataTypes.STRING,
-        primaryKey: true,
         allowNull: false,
+        primaryKey: true,
       },
       name: {
         type: DataTypes.STRING,
@@ -17,19 +17,25 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       average: {
-        type: DataTypes.FLOAT,
-        allowNull: true,
+        type: DataTypes.FLOAT, // Changed from STRING
+      },
+      createdAt: {
+        type: DataTypes.DATE,
+        allowNull: false,
+      },
+      updatedAt: {
+        type: DataTypes.DATE,
+        allowNull: false,
       },
     },
     {
       tableName: "students",
-      timestamps: false,
     }
   );
 
   Student.associate = (models) => {
-    Student.hasMany(models.Mark, { foreignKey: "student_id" });
     Student.hasMany(models.CourseOutcome, { foreignKey: "student_id" });
+    Student.hasMany(models.Mark, { foreignKey: "student_id" }); // Assuming this from schema
   };
 
   return Student;
