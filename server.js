@@ -11,7 +11,7 @@ const app = express();
 const allowedOrigins = [
   process.env.FRONTEND_URL || "http://localhost:3000",
   "https://student-performance-tracker-frontend.vercel.app",
-].filter((origin, index, self) => self.indexOf(origin) === index); // Remove duplicates
+].filter((origin, index, self) => self.indexOf(origin) === index);
 
 console.log("Allowed Origins:", allowedOrigins);
 
@@ -35,15 +35,37 @@ app.use(
 app.options("*", cors());
 app.use(express.json());
 
-// Import routes and database
-let authRoutes, studentRoutes, sequelize, User;
+// Import sequelize and initialize models
+let sequelize;
+try {
+  sequelize = require("./config/database");
+} catch (error) {
+  console.error("Failed to load sequelize:", error.message);
+  console.error("Error stack:", error.stack);
+  process.exit(1);
+}
+
+// Import models after sequelize is initialized
+let models;
+try {
+  models = require("./models");
+  console.log("Models loaded:", Object.keys(models));
+} catch (error) {
+  console.error("Failed to load models:", error.message);
+  console.error("Error stack:", error.stack);
+  process.exit(1);
+}
+
+const { User } = models;
+
+// Import routes
+let authRoutes, studentRoutes;
 try {
   authRoutes = require("./routes/authRoutes");
   studentRoutes = require("./routes/studentRoutes");
-  sequelize = require("./config/database");
-  ({ User } = require("./models"));
 } catch (error) {
-  console.error("Failed to load required modules:", error.message);
+  console.error("Failed to load routes:", error.message);
+  console.error("Error stack:", error.stack);
   process.exit(1);
 }
 
