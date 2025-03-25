@@ -21,7 +21,7 @@ const calculateStudentAverage = (marks) => {
   }, 0);
 
   const average = totalPercentage / marks.length;
-  return parseFloat(average.toFixed(2)); // Return number instead of string
+  return parseFloat(average.toFixed(2));
 };
 
 const getAllStudents = async (req, res) => {
@@ -45,7 +45,6 @@ const getAllStudents = async (req, res) => {
         typeof student.student_id === "string" &&
         student.student_id.trim() !== ""
     );
-    console.log("Returning students:", validStudents);
     res.json(validStudents);
   } catch (error) {
     console.error("Error fetching students:", error.message, error.stack);
@@ -58,8 +57,7 @@ const getAllStudents = async (req, res) => {
 const addStudent = async (req, res) => {
   const transaction = await Student.sequelize.transaction();
   try {
-    const { studentId, name, department, marks, courseOutcomes, coPoMapping } =
-      req.body;
+    const { studentId, name, department, marks, courseOutcomes } = req.body;
 
     if (
       !studentId ||
@@ -195,28 +193,6 @@ const addStudent = async (req, res) => {
       );
     }
 
-    if (coPoMapping && Array.isArray(coPoMapping) && coPoMapping.length > 0) {
-      await Promise.all(
-        coPoMapping.map(async (mapping) => {
-          if (!mapping.coId || !mapping.poMapping) {
-            throw new Error(
-              "Invalid CO-PO mapping data: missing required fields"
-            );
-          }
-          await CoPoMapping.create(
-            {
-              student_id: studentId,
-              coId: mapping.coId,
-              poMapping: mapping.poMapping,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-            { transaction }
-          );
-        })
-      );
-    }
-
     // Calculate and update average
     const createdMarks = await Mark.findAll({
       where: { student_id: studentId },
@@ -230,7 +206,6 @@ const addStudent = async (req, res) => {
       include: [
         { model: Mark, include: [MarksCoMapping] },
         { model: CourseOutcome },
-        { model: CoPoMapping },
       ],
       transaction,
     });
@@ -351,7 +326,6 @@ const updateMarks = async (req, res) => {
       include: [
         { model: Mark, include: [MarksCoMapping] },
         { model: CourseOutcome },
-        { model: CoPoMapping },
       ],
       transaction,
     });
@@ -432,7 +406,6 @@ const updateCourseOutcomes = async (req, res) => {
       include: [
         { model: Mark, include: [MarksCoMapping] },
         { model: CourseOutcome },
-        { model: CoPoMapping },
       ],
       transaction,
     });
@@ -498,7 +471,6 @@ const calculateCoPoAttainment = async (req, res) => {
       include: [
         { model: Mark, include: [MarksCoMapping] },
         { model: CourseOutcome },
-        { model: CoPoMapping },
       ],
     });
 
@@ -539,34 +511,15 @@ const calculateCoPoAttainment = async (req, res) => {
       });
     }
 
-    const poSummary = [];
-    for (const mapping of student.CoPoMappings || []) {
-      const coAttainment =
-        coSummary.find((co) => co.coId === mapping.coId)?.avgAttainment || 0;
-      if (Array.isArray(mapping.poMapping)) {
-        for (const po of mapping.poMapping) {
-          const poAttainment = coAttainment * (po.weight / 3);
-          poSummary.push({
-            poId: po.poId,
-            avgAttainment: parseFloat(poAttainment.toFixed(2)),
-          });
-        }
-      }
-    }
-
-    res.json({ coSummary, poSummary });
+    res.json({ coSummary });
   } catch (error) {
-    console.error("Error calculating CO/PO:", error.message, error.stack);
-    res
-      .status(500)
-      .json({ error: "Failed to calculate CO/PO: " + error.message });
+    console.error("Error calculating CO:", error.message, error.stack);
+    res.status(500).json({ error: "Failed to calculate CO: " + error.message });
   }
 };
 
 const uploadSemesterResults = async (req, res) => {
   try {
-    console.log("Received upload request");
-
     if (
       !req.files ||
       !req.files.internal ||
@@ -574,7 +527,6 @@ const uploadSemesterResults = async (req, res) => {
       !req.files.classTest ||
       !req.files.semester
     ) {
-      console.error("Missing required files");
       return res.status(400).json({
         error:
           "All files (internal, assignment, classTest, semester) are required",
@@ -587,31 +539,10 @@ const uploadSemesterResults = async (req, res) => {
       return workbook;
     };
 
-    console.log("Parsing Internal file...");
     const internalWb = await readExcelFile(req.files.internal[0].buffer);
-    console.log("Parsing Assignment file...");
     const assignmentWb = await readExcelFile(req.files.assignment[0].buffer);
-    console.log("Parsing Class Test file...");
     const classTestWb = await readExcelFile(req.files.classTest[0].buffer);
-    console.log("Parsing Semester file...");
     const semesterWb = await readExcelFile(req.files.semester[0].buffer);
-
-    console.log(
-      "Internal Workbook Sheet Names:",
-      internalWb.worksheets.map((ws) => ws.name)
-    );
-    console.log(
-      "Assignment Workbook Sheet Names:",
-      assignmentWb.worksheets.map((ws) => ws.name)
-    );
-    console.log(
-      "Class Test Workbook Sheet Names:",
-      classTestWb.worksheets.map((ws) => ws.name)
-    );
-    console.log(
-      "Semester Workbook Sheet Names:",
-      semesterWb.worksheets.map((ws) => ws.name)
-    );
 
     const sheetToJson = (worksheet) => {
       const json = [];
@@ -665,11 +596,6 @@ const uploadSemesterResults = async (req, res) => {
       return res.status(400).json({ error: "Semester file is empty" });
     }
 
-    console.log("Internal Sheets Count:", internalSheets.length);
-    console.log("Assignment Sheets Count:", assignmentSheets.length);
-    console.log("Class Test Sheets Count:", classTestSheets.length);
-    console.log("Semester Sheets Count:", semesterSheets.length);
-
     const coAttainment = {
       internal1: { CO1: 0, CO2: 0, CO3: 0, CO4: 0, CO5: 0, CO6: 0 },
       internal2: { CO1: 0, CO2: 0, CO3: 0, CO4: 0, CO5: 0, CO6: 0 },
@@ -717,13 +643,11 @@ const uploadSemesterResults = async (req, res) => {
       studentScoreTarget: 60,
     };
 
-    console.log("Processing Internal Assessments...");
     const internalMaxMarks = {
       internal1: { CO1: 88, CO2: 62, CO3: 0, CO4: 0, CO5: 0, CO6: 30 },
       internal2: { CO1: 0, CO2: 0, CO3: 103, CO4: 77, CO5: 0, CO6: 0 },
       internal3: { CO1: 30, CO2: 45, CO3: 30, CO4: 30, CO5: 28, CO6: 17 },
     };
-    console.log("Internal Max Marks:", internalMaxMarks);
 
     for (let i = 1; i <= 3; i++) {
       if (i > internalSheets.length || internalSheets[i - 1].length === 0) {
@@ -731,12 +655,10 @@ const uploadSemesterResults = async (req, res) => {
           const coId = `CO${k}`;
           coAttainment[`internal${i}`][coId] = "-";
         }
-        console.log(`Internal ${i}: Missing sheet, set to "-"`);
         continue;
       }
 
       const internalData = internalSheets[i - 1];
-      const internalScores = { CO1: 0, CO2: 0, CO3: 0, CO4: 0, CO5: 0, CO6: 0 };
       const studentsAbove60 = {
         CO1: 0,
         CO2: 0,
@@ -747,12 +669,7 @@ const uploadSemesterResults = async (req, res) => {
       };
       let studentCount = 0;
 
-      console.log(
-        `Processing Internal ${i}, Data Length: ${internalData.length}`
-      );
-
       for (let j = 0; j < internalData.length; j++) {
-        console.log(`Student ${j + 1} Data:`, internalData[j]);
         const percentages = {};
         for (let k = 1; k <= 6; k++) {
           const coId = `CO${k}`;
@@ -772,18 +689,10 @@ const uploadSemesterResults = async (req, res) => {
           if (percentages[coId] >= 60) {
             studentsAbove60[coId]++;
           }
-          console.log(
-            `Internal ${i}, Student ${
-              j + 1
-            }, ${coId}: Total Marks=${coTotal}, Max Marks=${maxMarks}, Percentage=${percentages[
-              coId
-            ].toFixed(2)}%`
-          );
         }
         studentCount++;
       }
 
-      console.log(`Internal ${i} Student Count: ${studentCount}`);
       for (let k = 1; k <= 6; k++) {
         const coId = `CO${k}`;
         const percentageAbove60 =
@@ -791,17 +700,9 @@ const uploadSemesterResults = async (req, res) => {
         const level = mapPercentageToLevel(percentageAbove60);
         coAttainment[`internal${i}`][coId] =
           internalMaxMarks[`internal${i}`][coId] > 0 ? level : "-";
-        console.log(
-          `Internal ${i}, ${coId}: Students Above 60%=${
-            studentsAbove60[coId]
-          }, Percentage Above 60%=${percentageAbove60.toFixed(2)}%, Level=${
-            coAttainment[`internal${i}`][coId]
-          }`
-        );
       }
     }
 
-    console.log("Calculating Internal Average...");
     const internalAverage = { CO1: 0, CO2: 0, CO3: 0, CO4: 0, CO5: 0, CO6: 0 };
     const internalCounts = { CO1: 0, CO2: 0, CO3: 0, CO4: 0, CO5: 0, CO6: 0 };
 
@@ -821,34 +722,19 @@ const uploadSemesterResults = async (req, res) => {
       internalAverage[coId] = count > 0 ? totalLevel / count : 0;
       internalCounts[coId] = count;
       coAttainment.internalAvg[coId] = count > 0 ? internalAverage[coId] : 0;
-      console.log(
-        `Internal Average ${coId}: Total Level=${totalLevel}, Count=${count}, Average=${coAttainment.internalAvg[
-          coId
-        ].toFixed(2)}`
-      );
     }
 
-    console.log("Processing Assignments...");
     for (let i = 1; i <= 3; i++) {
       if (i > assignmentSheets.length || assignmentSheets[i - 1].length === 0) {
         for (let k = 1; k <= 6; k++) {
           const coId = `CO${k}`;
           coAttainment[`assignment${i}`][coId] = "-";
         }
-        console.log(`Assignment ${i}: Missing sheet, set to "-"`);
         continue;
       }
 
       const assignmentData = assignmentSheets[i - 1];
       let assignmentMaxMarks = 10;
-      const assignmentTotals = {
-        CO1: 0,
-        CO2: 0,
-        CO3: 0,
-        CO4: 0,
-        CO5: 0,
-        CO6: 0,
-      };
       const studentsAbove60 = {
         CO1: 0,
         CO2: 0,
@@ -864,7 +750,6 @@ const uploadSemesterResults = async (req, res) => {
         for (let k = 1; k <= 6; k++) {
           const coId = `CO${k}`;
           const marks = Number(assignmentData[j][coId]) || 0;
-          assignmentTotals[coId] += marks;
           if (marks > assignmentMaxMarks) {
             assignmentMaxMarks = marks;
           }
@@ -876,24 +761,15 @@ const uploadSemesterResults = async (req, res) => {
         studentCount++;
       }
 
-      console.log(`Assignment ${i} Student Count: ${studentCount}`);
       for (let k = 1; k <= 6; k++) {
         const coId = `CO${k}`;
         const percentageAbove60 =
           studentCount > 0 ? (studentsAbove60[coId] / studentCount) * 100 : 0;
         const level = mapPercentageToLevel(percentageAbove60);
         coAttainment[`assignment${i}`][coId] = level;
-        console.log(
-          `Assignment ${i}, ${coId}: Students Above 60%=${
-            studentsAbove60[coId]
-          }, Percentage Above 60%=${percentageAbove60.toFixed(2)}%, Level=${
-            coAttainment[`assignment${i}`][coId]
-          }`
-        );
       }
     }
 
-    console.log("Calculating Assignment Average...");
     for (let k = 1; k <= 6; k++) {
       const coId = `CO${k}`;
       let totalLevel = 0;
@@ -908,34 +784,19 @@ const uploadSemesterResults = async (req, res) => {
       }
 
       coAttainment.assignmentAvg[coId] = count > 0 ? totalLevel / count : 0;
-      console.log(
-        `Assignment Average ${coId}: Total Level=${totalLevel}, Count=${count}, Average=${coAttainment.assignmentAvg[
-          coId
-        ].toFixed(2)}`
-      );
     }
 
-    console.log("Processing Class Tests...");
     for (let i = 1; i <= 2; i++) {
       if (i > classTestSheets.length || classTestSheets[i - 1].length === 0) {
         for (let k = 1; k <= 6; k++) {
           const coId = `CO${k}`;
           coAttainment[`classTest${i}`][coId] = "-";
         }
-        console.log(`Class Test ${i}: Missing sheet, set to "-"`);
         continue;
       }
 
       const classTestData = classTestSheets[i - 1];
       let classTestMaxMarks = 10;
-      const classTestTotals = {
-        CO1: 0,
-        CO2: 0,
-        CO3: 0,
-        CO4: 0,
-        CO5: 0,
-        CO6: 0,
-      };
       const studentsAbove60 = {
         CO1: 0,
         CO2: 0,
@@ -951,7 +812,6 @@ const uploadSemesterResults = async (req, res) => {
         for (let k = 1; k <= 6; k++) {
           const coId = `CO${k}`;
           const marks = Number(classTestData[j][coId]) || 0;
-          classTestTotals[coId] += marks;
           if (marks > classTestMaxMarks) {
             classTestMaxMarks = marks;
           }
@@ -963,24 +823,15 @@ const uploadSemesterResults = async (req, res) => {
         studentCount++;
       }
 
-      console.log(`Class Test ${i} Student Count: ${studentCount}`);
       for (let k = 1; k <= 6; k++) {
         const coId = `CO${k}`;
         const percentageAbove60 =
           studentCount > 0 ? (studentsAbove60[coId] / studentCount) * 100 : 0;
         const level = mapPercentageToLevel(percentageAbove60);
         coAttainment[`classTest${i}`][coId] = level;
-        console.log(
-          `Class Test ${i}, ${coId}: Students Above 60%=${
-            studentsAbove60[coId]
-          }, Percentage Above 60%=${percentageAbove60.toFixed(2)}%, Level=${
-            coAttainment[`classTest${i}`][coId]
-          }`
-        );
       }
     }
 
-    console.log("Calculating Class Test Average...");
     for (let k = 1; k <= 6; k++) {
       const coId = `CO${k}`;
       let totalLevel = 0;
@@ -995,14 +846,8 @@ const uploadSemesterResults = async (req, res) => {
       }
 
       coAttainment.classTestAvg[coId] = count > 0 ? totalLevel / count : 0;
-      console.log(
-        `Class Test Average ${coId}: Total Level=${totalLevel}, Count=${count}, Average=${coAttainment.classTestAvg[
-          coId
-        ].toFixed(2)}`
-      );
     }
 
-    console.log("Calculating CIA...");
     for (let k = 1; k <= 6; k++) {
       const coId = `CO${k}`;
       const internalAvg = coAttainment.internalAvg[coId];
@@ -1013,14 +858,8 @@ const uploadSemesterResults = async (req, res) => {
         (assignmentAvg > 0 ? assignmentAvg : 0) * 0.3 +
         (classTestAvg > 0 ? classTestAvg : 0) * 0.2;
       coAttainment.cia[coId] = Math.min(Math.max(ciaValue, 1), 3);
-      console.log(
-        `CIA, ${coId}: Internal=${internalAvg}, Assignment=${assignmentAvg}, Class Test=${classTestAvg}, CIA Value=${coAttainment.cia[
-          coId
-        ].toFixed(2)}`
-      );
     }
 
-    console.log("Processing Semester Results...");
     const semesterScores = { CO1: 0, CO2: 0, CO3: 0, CO4: 0, CO5: 0, CO6: 0 };
     const coMapping = {
       CO1: [
@@ -1067,7 +906,6 @@ const uploadSemesterResults = async (req, res) => {
         const level = mapPercentageToLevel(percentage);
 
         if (!studentId || studentId.trim() === "") {
-          console.warn(`Skipping invalid student ID at row ${i + 1}`);
           continue;
         }
 
@@ -1125,43 +963,30 @@ const uploadSemesterResults = async (req, res) => {
         studentCount++;
       }
 
-      console.log("Semester Student Count:", studentCount);
       for (let k = 1; k <= 6; k++) {
         const coId = `CO${k}`;
         if (coMapping[coId]) {
           const seeValue =
             studentCount > 0 ? semesterScores[coId] / studentCount : 0;
           coAttainment.see[coId] = Math.min(Math.max(seeValue, 1), 3);
-          console.log(`SEE, ${coId}: ${coAttainment.see[coId].toFixed(2)}`);
         }
       }
 
-      console.log("Calculating Direct Attainment...");
       for (let k = 1; k <= 6; k++) {
         const coId = `CO${k}`;
         const directValue =
           coAttainment.cia[coId] * parameters.y +
           coAttainment.see[coId] * parameters.x;
         coAttainment.direct[coId] = Math.min(Math.max(directValue, 1), 3);
-        console.log(`Direct, ${coId}: ${coAttainment.direct[coId].toFixed(2)}`);
       }
 
-      console.log("Calculating Indirect Attainment...");
       for (let k = 1; k <= 6; k++) {
         const coId = `CO${k}`;
         const indirectValue =
           (coAttainment.seminar[coId] + coAttainment.workProject[coId]) / 2;
         coAttainment.indirect[coId] = Math.min(Math.max(indirectValue, 1), 3);
-        console.log(
-          `Indirect, ${coId}: Seminar=${
-            coAttainment.seminar[coId]
-          }, Work Project=${
-            coAttainment.workProject[coId]
-          }, Indirect Value=${coAttainment.indirect[coId].toFixed(2)}`
-        );
       }
 
-      console.log("Calculating Overall Attainment...");
       for (let k = 1; k <= 6; k++) {
         const coId = `CO${k}`;
         const overallValue =
@@ -1170,38 +995,17 @@ const uploadSemesterResults = async (req, res) => {
         coAttainment.overall[coId] = Math.min(Math.max(overallValue, 1), 3);
         targetAttained[coId] =
           coAttainment.overall[coId] >= parameters.targetAttainmentLevel;
-        console.log(
-          `Overall, ${coId}: ${coAttainment.overall[coId].toFixed(
-            2
-          )}, Target Attained: ${targetAttained[coId]}`
-        );
       }
 
       await transaction.commit();
-      console.log(
-        "Final CO Attainment:",
-        JSON.stringify(coAttainment, null, 2)
-      );
-      console.log("Target Attained:", targetAttained);
-
       res.json({ coAttainment, targetAttained, parameters });
     } catch (error) {
       await transaction.rollback();
-      console.error(
-        "Error processing semester results:",
-        error.message,
-        error.stack
-      );
       res.status(500).json({
         error: "Failed to process semester results: " + error.message,
       });
     }
   } catch (error) {
-    console.error(
-      "Error uploading semester results:",
-      error.message,
-      error.stack
-    );
     res
       .status(500)
       .json({ error: "Failed to upload semester results: " + error.message });
